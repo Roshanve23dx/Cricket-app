@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CricLive — Live Cricket Scores</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07111f;--card:#0f1e31;--card2:#132440;--border:#1c2e45;
+  --green:#22c55e;--orange:#f97316;--blue:#38bdf8;--red:#ef4444;
+  --text:#e2e8f0;--sub:#94a3b8;--muted:#465569;
+  --mono:'SF Mono','Fira Code','Consolas',monospace;
+  --radius:14px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:100;background:rgba(7,17,31,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.hdr{max-width:740px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{font-size:24px;line-height:1}
+.brand h1{font-size:17px;font-weight:800;letter-spacing:-.03em}
+.brand p{font-size:10px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+.clock{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.prog-bar{height:2px;background:var(--border)}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--green),#16a34a);width:0;animation:progress 5s linear infinite}
+@keyframes progress{0%{width:0}100%{width:100%}}
+
+/* ── BANNER ── */
+.banner{max-width:740px;margin:0 auto;padding:9px 16px;font-size:12px;text-align:center;line-height:1.5;display:none}
+.banner.show{display:block}
+.banner-warn{background:rgba(249,115,22,.07);border-bottom:1px solid rgba(249,115,22,.18);color:rgba(249,115,22,.9)}
+.banner-err{background:rgba(239,68,68,.07);border-bottom:1px solid rgba(239,68,68,.2);color:rgba(239,68,68,.9)}
+.banner-info{background:rgba(56,189,248,.06);border-bottom:1px solid rgba(56,189,248,.18);color:rgba(56,189,248,.9)}
+
+/* ── TABS ── */
+.tab-bar{background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:61px;z-index:90}
+.tabs{max-width:740px;margin:0 auto;display:flex}
+.tab{flex:1;padding:13px 6px;background:none;border:none;cursor:pointer;color:var(--sub);font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.tab.active{color:var(--green);border-color:var(--green)}
+.tab:hover:not(.active){color:var(--text)}
+.count{font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);min-width:20px;text-align:center}
+.count.zero{background:rgba(70,85,105,.15);color:var(--muted)}
+
+/* ── MAIN ── */
+main{max-width:740px;margin:0 auto;padding:16px}
+.section{display:none}.section.active{display:block}
+
+/* ── MATCH CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;cursor:default;transition:box-shadow .2s,transform .15s}
+.card:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.card-body{padding:14px 16px 12px}
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.card-top-left{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.live-tag{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:var(--green);letter-spacing:.07em;text-transform:uppercase}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
+.fmt-tag{font-size:9px;font-weight:700;color:var(--muted);background:rgba(70,85,105,.18);padding:2px 7px;border-radius:5px;letter-spacing:.05em;text-transform:uppercase}
+.match-name{font-size:10px;color:var(--muted);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* Scoreline */
+.scoreline{margin-bottom:8px}
+.team-row{display:flex;align-items:baseline;justify-content:space-between;padding:3px 0}
+.team-name{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.team-score{font-family:var(--mono);font-size:15px;font-weight:600}
+.team-score.faded{color:var(--sub)}
+.match-status{font-size:11px;font-weight:600;color:var(--orange);margin-top:5px;line-height:1.4}
+
+/* Result pill */
+.result-tag{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:var(--green);letter-spacing:.06em;text-transform:uppercase}
+
+/* Meta info */
+.meta-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);margin-top:6px;flex-wrap:wrap}
+
+/* ── SCORECARD TOGGLE ── */
+.sc-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border:none;background:rgba(255,255,255,.022);border-top:1px solid var(--border);cursor:pointer;color:var(--sub);font-size:11px;font-weight:500;transition:background .15s;gap:8px}
+.sc-toggle:hover{background:rgba(255,255,255,.05)}
+.sc-toggle-label{display:flex;align-items:center;gap:6px}
+.chevron{transition:transform .22s;color:var(--muted)}
+.chevron.open{transform:rotate(180deg)}
+
+/* ── SCORECARD PANEL ── */
+.sc-panel{display:none;border-top:1px solid var(--border);padding:14px 16px}
+.sc-panel.open{display:block}
+.sc-section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:9px}
+.bat-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.bat-row:last-child{border-bottom:none}
+.bat-left{display:flex;align-items:center;gap:7px}
+.striker-star{font-size:10px;color:var(--green);width:11px;flex-shrink:0;font-weight:800}
+.bat-name{font-size:13px;font-weight:500}
+.bat-stats{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px}
+.bat-runs{font-size:15px;font-weight:700}
+.bat-balls{color:var(--sub)}
+.bat-extras{color:var(--blue);font-size:10px}
+.bat-sr{color:var(--muted);font-size:10px}
+.bowl-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0}
+.bowl-name{font-size:13px;font-weight:500}
+.bowl-stats{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;color:var(--sub)}
+.bowl-fig{color:var(--text);font-weight:700}
+.divider{height:1px;background:rgba(255,255,255,.04);margin:12px 0}
+
+/* ── STATS STRIP ── */
+.stats-strip{display:flex;justify-content:space-around;padding-top:4px}
+.stat-box{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.stat-value{font-family:var(--mono);font-size:15px;font-weight:700}
+.stat-value.green{color:var(--green)}
+.stat-value.orange{color:var(--orange)}
+
+/* ── SKELETON ── */
+.skeleton{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px;height:14px;margin:5px 0}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+/* ── EMPTY STATE ── */
+.empty-state{display:none;text-align:center;padding:60px 16px;color:var(--muted)}
+.empty-state.show{display:block}
+.empty-icon{font-size:44px;margin-bottom:12px}
+.empty-msg{font-size:13px;line-height:1.7}
+
+footer{max-width:740px;margin:0 auto;padding:20px 16px 28px;text-align:center;font-size:11px;color:var(--muted);border-top:1px solid var(--border);margin-top:8px}
+
+@media(max-width:480px){
+  .team-name{font-size:15px}
+  .team-score{font-size:13px}
+  .match-name{max-width:130px}
+  .brand h1{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr">
+    <div class="brand">
+      <div class="brand-icon">🏏</div>
+      <div>
+        <h1>CricLive</h1>
+        <p>IPL · ICC · India</p>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="pulse"></div>
+      <span class="clock" id="clock">—</span>
+    </div>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="prog"></div></div>
+  <div class="banner" id="banner"></div>
+</header>
+
+<div class="tab-bar">
+  <div class="tabs">
+    <button class="tab active" data-sec="live" onclick="switchTab('live')">
+      ⚡ Live <span class="count zero" id="live-count">0</span>
+    </button>
+    <button class="tab" data-sec="upcoming" onclick="switchTab('upcoming')">📅 Upcoming</button>
+    <button class="tab" data-sec="recent" onclick="switchTab('recent')">✓ Results</button>
+  </div>
+</div>
+
+<main>
+  <div class="section active" id="sec-live">
+    <div id="live-list"></div>
+    <div class="empty-state" id="live-empty">
+      <div class="empty-icon">🏏</div>
+      <div class="empty-msg">No live IPL, ICC or India matches right now.<br>Check the Upcoming or Results tab.</div>
+    </div>
+  </div>
+  <div class="section" id="sec-upcoming">
+    <div id="upcoming-list"></div>
+    <div class="empty-state" id="upcoming-empty">
+      <div class="empty-icon">📅</div>
+      <div class="empty-msg">No upcoming matches in the schedule.</div>
+    </div>
+  </div>
+  <div class="section" id="sec-recent">
+    <div id="recent-list"></div>
+    <div class="empty-state" id="recent-empty">
+      <div class="empty-icon">🏆</div>
+      <div class="empty-msg">No recent results available.</div>
+    </div>
+  </div>
+</main>
+
+<footer>Auto-refreshes every 5 seconds &middot; Data: api.cricketdata.org &middot; IPL, ICC &amp; India only</footer>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+const expanded = new Set();
+const scCache  = {};
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.sec === name));
+  document.querySelectorAll('.section').forEach(s =>
+    s.classList.toggle('active', s.id === 'sec-' + name));
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+const esc = s => String(s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const val  = (v, d='—') => (v !== undefined && v !== null) ? String(v) : d;
+const fix2 = v => (v === null || v === undefined) ? '—' : parseFloat(v).toFixed(2);
+const nowStr = () => new Date().toLocaleTimeString('en-IN',
+  {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true});
+
+// ── Banner ───────────────────────────────────────────────────────────────────
+const BANNER_MSGS = {
+  INVALID_KEY:    ['banner-warn', '⚠ Invalid API key. Set CRICKET_API_KEY in your Render.com environment variables.'],
+  RATE_LIMITED:   ['banner-info', 'ℹ API rate limit reached — showing cached data. Will auto-retry in 5 seconds.'],
+  UNEXPECTED_RESPONSE: ['banner-err', '⚠ Unexpected API response — check server logs.'],
+};
+
+function showBanner(code) {
+  const el = document.getElementById('banner');
+  el.className = 'banner';
+  if (!code) return;
+  const [cls, msg] = BANNER_MSGS[code] || ['banner-err', '⚠ API error: ' + esc(code)];
+  el.classList.add('show', cls);
+  el.innerHTML = msg;
+}
+
+// ── Scorecard ─────────────────────────────────────────────────────────────────
+async function loadScorecard(matchId) {
+  const panel = document.getElementById('sc-' + matchId);
+  if (!panel) return;
+  panel.innerHTML = [
+    '<div class="skeleton" style="width:55%"></div>',
+    '<div class="skeleton" style="width:75%"></div>',
+    '<div class="skeleton" style="width:45%"></div>',
+  ].join('');
+  try {
+    const res = await fetch('/api/scorecard/' + encodeURIComponent(matchId));
+    const d   = await res.json();
+    scCache[matchId] = d;
+    renderScorecard(matchId);
+  } catch(e) {
+    panel.innerHTML = '<p style="font-size:12px;color:var(--sub)">Scorecard unavailable</p>';
+  }
+}
+
+function renderScorecard(matchId) {
+  const panel = document.getElementById('sc-' + matchId);
+  if (!panel) return;
+  const d = scCache[matchId] || {};
+
+  if (d.error) {
+    panel.innerHTML = `<p style="font-size:12px;color:var(--sub)">${esc(d.error)}</p>`;
+    return;
+  }
+
+  const { striker: s, nonStriker: ns, bowler: bw, partnership: pt,
+          runRate: crr, requiredRunRate: rrr } = d;
+  let html = '';
+
+  // Batting
+  html += '<div class="sc-section-label">At the Crease</div>';
+  if (s?.name) {
+    html += `<div class="bat-row">
+      <div class="bat-left">
+        <span class="striker-star">★</span>
+        <span class="bat-name">${esc(s.name)}</span>
+      </div>
+      <div class="bat-stats">
+        <span class="bat-runs">${val(s.runs)}</span>
+        <span class="bat-balls">(${val(s.balls)})</span>
+        <span class="bat-extras">${val(s.fours)}×4 &nbsp;${val(s.sixes)}×6</span>
+        <span class="bat-sr">SR ${fix2(s.sr)}</span>
+      </div>
+    </div>`;
+  }
+  if (ns?.name) {
+    html += `<div class="bat-row">
+      <div class="bat-left">
+        <span class="striker-star"></span>
+        <span class="bat-name">${esc(ns.name)}</span>
+      </div>
+      <div class="bat-stats">
+        <span class="bat-runs">${val(ns.runs)}</span>
+        <span class="bat-balls">(${val(ns.balls)})</span>
+        <span class="bat-extras">${val(ns.fours)}×4 &nbsp;${val(ns.sixes)}×6</span>
+        <span class="bat-sr">SR ${fix2(ns.sr)}</span>
+      </div>
+    </div>`;
+  }
+  if (!s?.name && !ns?.name) {
+    html += '<p style="font-size:12px;color:var(--sub);padding:4px 0">Batting data not available yet</p>';
+  }
+
+  // Bowling
+  if (bw?.name) {
+    html += '<div class="divider"></div>';
+    html += '<div class="sc-section-label">Bowling</div>';
+    html += `<div class="bowl-row">
+      <span class="bowl-name">${esc(bw.name)}</span>
+      <div class="bowl-stats">
+        <span>${val(bw.overs)} ov</span>
+        <span class="bowl-fig">${val(bw.wickets)}-${val(bw.runs)}</span>
+        <span>${val(bw.maidens)} md</span>
+        <span>Eco ${fix2(bw.economy)}</span>
+      </div>
+    </div>`;
+  }
+
+  // Stats strip
+  const hasStats = crr !== null || rrr !== null || (pt?.runs !== undefined);
+  if (hasStats) {
+    html += '<div class="divider"></div>';
+    html += '<div class="stats-strip">';
+    if (crr !== null) {
+      html += `<div class="stat-box">
+        <span class="stat-label">Run Rate</span>
+        <span class="stat-value green">${fix2(crr)}</span>
+      </div>`;
+    }
+    if (rrr !== null) {
+      html += `<div class="stat-box">
+        <span class="stat-label">Req. Rate</span>
+        <span class="stat-value orange">${fix2(rrr)}</span>
+      </div>`;
+    }
+    if (pt?.runs !== undefined) {
+      html += `<div class="stat-box">
+        <span class="stat-label">P'ship</span>
+        <span class="stat-value">${pt.runs}(${pt.balls})</span>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  panel.innerHTML = html;
+}
+
+function toggleScorecard(matchId) {
+  const panel = document.getElementById('sc-' + matchId);
+  const chev  = document.getElementById('chev-' + matchId);
+  if (!panel) return;
+  if (expanded.has(matchId)) {
+    expanded.delete(matchId);
+    panel.classList.remove('open');
+    chev?.classList.remove('open');
+  } else {
+    expanded.add(matchId);
+    panel.classList.add('open');
+    chev?.classList.add('open');
+    if (!scCache[matchId]) loadScorecard(matchId);
+    else renderScorecard(matchId);
+  }
+}
+
+// ── Card renderers ────────────────────────────────────────────────────────────
+function liveCard(m) {
+  const open = expanded.has(m.matchId);
+  return `
+<div class="card">
+  <div class="card-body">
+    <div class="card-top">
+      <div class="card-top-left">
+        <div class="live-tag"><div class="live-dot"></div> LIVE</div>
+        <span class="fmt-tag">${esc(m.matchType)}</span>
+      </div>
+      <span class="match-name" title="${esc(m.name)}">${esc(m.name)}</span>
+    </div>
+    <div class="scoreline">
+      <div class="team-row">
+        <span class="team-name">${esc(m.team1.short)}</span>
+        <span class="team-score">${esc(m.team1Score)}</span>
+      </div>
+      <div class="team-row">
+        <span class="team-name">${esc(m.team2.short)}</span>
+        <span class="team-score faded">${esc(m.team2Score)}</span>
+      </div>
+    </div>
+    <div class="match-status">${esc(m.status)}</div>
+  </div>
+  <button class="sc-toggle" onclick="toggleScorecard('${esc(m.matchId)}')">
+    <span class="sc-toggle-label">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Live Scorecard
+    </span>
+    <svg class="chevron${open?' open':''}" id="chev-${esc(m.matchId)}"
+         width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </button>
+  <div class="sc-panel${open?' open':''}" id="sc-${esc(m.matchId)}"></div>
+</div>`;
+}
+
+function upcomingCard(m) {
+  return `
+<div class="card">
+  <div class="card-body">
+    <div class="card-top">
+      <div class="card-top-left"><span class="fmt-tag">${esc(m.matchType)}</span></div>
+      <span class="match-name" title="${esc(m.name)}">${esc(m.name)}</span>
+    </div>
+    <div class="scoreline" style="margin-bottom:6px">
+      <div class="team-row" style="padding:2px 0"><span class="team-name">${esc(m.team1.name)}</span></div>
+      <div class="team-row" style="padding:2px 0;gap:8px">
+        <span style="font-size:10px;color:var(--muted)">vs</span>
+        <span class="team-name">${esc(m.team2.name)}</span>
+      </div>
+    </div>
+    ${m.startDateFormatted ? `<div class="meta-row">📅 ${esc(m.startDateFormatted)}</div>` : ''}
+    ${m.venue             ? `<div class="meta-row">📍 ${esc(m.venue)}</div>`             : ''}
+  </div>
+</div>`;
+}
+
+function recentCard(m) {
+  return `
+<div class="card">
+  <div class="card-body">
+    <div class="card-top">
+      <div class="card-top-left">
+        <div class="result-tag">
+          <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Result
+        </div>
+        <span class="fmt-tag">${esc(m.matchType)}</span>
+      </div>
+      <span class="match-name" title="${esc(m.name)}">${esc(m.name)}</span>
+    </div>
+    <div class="scoreline">
+      <div class="team-row">
+        <span class="team-name">${esc(m.team1.short)}</span>
+        <span class="team-score">${esc(m.team1Score)}</span>
+      </div>
+      <div class="team-row">
+        <span class="team-name">${esc(m.team2.short)}</span>
+        <span class="team-score faded">${esc(m.team2Score)}</span>
+      </div>
+    </div>
+    <div class="match-status">${esc(m.status)}</div>
+    ${m.venue ? `<div class="meta-row" style="margin-top:6px">📍 ${esc(m.venue)}</div>` : ''}
+  </div>
+</div>`;
+}
+
+// ── Render list ───────────────────────────────────────────────────────────────
+function renderList(listId, emptyId, items, builder) {
+  const list  = document.getElementById(listId);
+  const empty = document.getElementById(emptyId);
+  if (!items.length) {
+    list.innerHTML = '';
+    empty.classList.add('show');
+  } else {
+    empty.classList.remove('show');
+    list.innerHTML = items.map(builder).join('');
+  }
+}
+
+// ── Fetch & refresh ───────────────────────────────────────────────────────────
+async function fetchLive() {
+  try {
+    const res = await fetch('/api/live');
+    const d   = await res.json();
+    const ms  = d.matches || [];
+    showBanner(d.error || null);
+    const cnt = document.getElementById('live-count');
+    cnt.textContent  = ms.length;
+    cnt.className    = 'count' + (ms.length === 0 ? ' zero' : '');
+    renderList('live-list', 'live-empty', ms, liveCard);
+    
